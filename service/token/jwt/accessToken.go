@@ -85,7 +85,9 @@ func (j *JwtTokenManager) Issue(usr *user.User) (string, error) {
 		return "", err
 	}
 	accessToken := &AccessToken{Id: bson.NewObjectId(), Jwt: ss, UserId: usr.Id, ExpiresAt: expiresAt, Blacklist: false}
-	err = j.session.DB(j.dbName).C(j.collectionName).Insert(accessToken)
+	sess := j.session.Clone()
+	defer sess.Close()
+	err = sess.DB(j.dbName).C(j.collectionName).Insert(accessToken)
 	if err != nil {
 		if mgo.IsDup(err) {
 			return "", ErrorTokenAlreadyExist
@@ -128,7 +130,9 @@ func (j *JwtTokenManager) Validate(ss string) (*CustomClaims, error) {
 		return nil, err
 	}
 	accessToken := &AccessToken{}
-	err = j.session.DB(j.dbName).C(j.collectionName).Find(bson.M{"jwt": ss}).One(accessToken)
+	sess := j.session.Clone()
+	defer sess.Close()
+	err = sess.DB(j.dbName).C(j.collectionName).Find(bson.M{"jwt": ss}).One(accessToken)
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			return nil, ErrorTokenExpiredOrInactive
@@ -142,7 +146,9 @@ func (j *JwtTokenManager) Validate(ss string) (*CustomClaims, error) {
 }
 
 func (j *JwtTokenManager) ForceExpireAll(usr *user.User) error {
-	info, err := j.session.DB(j.dbName).C(j.collectionName).UpdateAll(bson.M{"userId": usr.Id, "blacklist": false, "expiresAt": bson.M{"$gte": time.Now()}}, bson.M{"$set": bson.M{"blacklist": true}})
+	sess := j.session.Clone()
+	defer sess.Close()
+	info, err := sess.DB(j.dbName).C(j.collectionName).UpdateAll(bson.M{"userId": usr.Id, "blacklist": false, "expiresAt": bson.M{"$gte": time.Now()}}, bson.M{"$set": bson.M{"blacklist": true}})
 	if err != nil {
 		return err
 	}
@@ -153,7 +159,9 @@ func (j *JwtTokenManager) ForceExpireAll(usr *user.User) error {
 }
 
 func (j *JwtTokenManager) ForeExpireToken(ss string) error {
-	err := j.session.DB(j.dbName).C(j.collectionName).Update(bson.M{"jwt": ss}, bson.M{"$set": bson.M{"blacklist": true}})
+	sess := j.session.Clone()
+	defer sess.Close()
+	err := sess.DB(j.dbName).C(j.collectionName).Update(bson.M{"jwt": ss}, bson.M{"$set": bson.M{"blacklist": true}})
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			return ErrorTokenNotFound
@@ -164,7 +172,9 @@ func (j *JwtTokenManager) ForeExpireToken(ss string) error {
 }
 
 func (j *JwtTokenManager) RemoveExpired() error {
-	info, err := j.session.DB(j.dbName).C(j.collectionName).RemoveAll(bson.M{"$or": []bson.M{bson.M{"expiresAt": bson.M{"$lte": time.Now()}}, bson.M{"blacklist": true}}})
+	sess := j.session.Clone()
+	defer sess.Close()
+	info, err := sess.DB(j.dbName).C(j.collectionName).RemoveAll(bson.M{"$or": []bson.M{bson.M{"expiresAt": bson.M{"$lte": time.Now()}}, bson.M{"blacklist": true}}})
 	if err != nil {
 		return err
 	}

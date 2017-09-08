@@ -86,7 +86,9 @@ func (u *UserManager) Create(username, password string, claims []string) error {
 		Claims:   claims,
 		Active:   true,
 	}
-	err = u.session.DB(u.dbName).C(u.collectionName).Insert(user)
+	sess := u.session.Clone()
+	defer sess.Close()
+	err = sess.DB(u.dbName).C(u.collectionName).Insert(user)
 	if err != nil {
 		if mgo.IsDup(err) {
 			return ErrorUserAlreadyExist
@@ -98,7 +100,9 @@ func (u *UserManager) Create(username, password string, claims []string) error {
 
 func (u *UserManager) Exists(username string) (bool, error) {
 	username = strings.ToLower(username)
-	cnt, err := u.session.DB(u.dbName).C(u.collectionName).Find(bson.M{"username": username}).Count()
+	sess := u.session.Clone()
+	defer sess.Close()
+	cnt, err := sess.DB(u.dbName).C(u.collectionName).Find(bson.M{"username": username}).Count()
 	if err != nil {
 		return false, err
 	}
@@ -111,7 +115,9 @@ func (u *UserManager) Exists(username string) (bool, error) {
 func (u *UserManager) FindByName(username string) (*User, error) {
 	username = strings.ToLower(username)
 	user := User{}
-	err := u.session.DB(u.dbName).C(u.collectionName).Find(bson.M{"username": username}).One(&user)
+	sess := u.session.Clone()
+	defer sess.Close()
+	err := sess.DB(u.dbName).C(u.collectionName).Find(bson.M{"username": username}).One(&user)
 	if err != nil {
 		return nil, NotFoundError(err)
 	}
@@ -120,7 +126,9 @@ func (u *UserManager) FindByName(username string) (*User, error) {
 
 func (u *UserManager) FindByID(id bson.ObjectId) (*User, error) {
 	user := User{}
-	err := u.session.DB(u.dbName).C(u.collectionName).FindId(id).One(&user)
+	sess := u.session.Clone()
+	defer sess.Close()
+	err := sess.DB(u.dbName).C(u.collectionName).FindId(id).One(&user)
 	if err != nil {
 		return nil, NotFoundError(err)
 	}
@@ -129,7 +137,9 @@ func (u *UserManager) FindByID(id bson.ObjectId) (*User, error) {
 
 func (u *UserManager) SetActive(username string, state bool) error {
 	username = strings.ToLower(username)
-	err := u.session.DB(u.dbName).C(u.collectionName).Update(bson.M{"username": username}, bson.M{"$set": bson.M{"active": state}})
+	sess := u.session.Clone()
+	defer sess.Close()
+	err := sess.DB(u.dbName).C(u.collectionName).Update(bson.M{"username": username}, bson.M{"$set": bson.M{"active": state}})
 	if err != nil {
 		return NotFoundError(err)
 	}
@@ -142,7 +152,9 @@ func (u *UserManager) SetPassword(username, newPassword string) error {
 	if err != nil {
 		return err
 	}
-	err = u.session.DB(u.dbName).C(u.collectionName).Update(bson.M{"username": username}, bson.M{"$set": bson.M{"password": hashedPassword}})
+	sess := u.session.Clone()
+	defer sess.Close()
+	err = sess.DB(u.dbName).C(u.collectionName).Update(bson.M{"username": username}, bson.M{"$set": bson.M{"password": hashedPassword}})
 	if err != nil {
 		return NotFoundError(err)
 	}

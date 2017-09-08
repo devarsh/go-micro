@@ -19,10 +19,10 @@ type ApiToken struct {
 	RefreshToken string
 }
 
-func NewAuthService(session *mgo.Session) *AuthService {
-	um := user.NewUserMananger(session.Copy(), "test")
-	rt := token.NewTokenMananger(time.Hour*time.Duration(1), session.Copy(), "test")
-	at := jwt.NewJwtTokenManager(time.Minute*time.Duration(5), "MyPrivateKey", "localhost:8080", session.Copy(), "test")
+func NewAuthService(session *mgo.Session, refreshTokenTime time.Duration, accessTokenTime time.Duration, tokenKey string) *AuthService {
+	um := user.NewUserMananger(session, "test")
+	rt := token.NewTokenMananger(refreshTokenTime, session, "test")
+	at := jwt.NewJwtTokenManager(accessTokenTime, tokenKey, "localhost:8080", session, "test")
 	return &AuthService{userManager: um, refreshToken: rt, accessToken: at}
 }
 
@@ -90,7 +90,7 @@ func (as *AuthService) RefreshAccessToken(refreshToken string) (string, error) {
 	return accessTkn, nil
 }
 
-func (as *AuthService) InvalidateSession(username string) error {
+func (as *AuthService) PerformLogout(username string) error {
 	user, err := as.userManager.FindByName(username)
 	if err != nil {
 		return err
@@ -111,7 +111,7 @@ func (as *AuthService) DeactivateUser(username string) error {
 	if err != nil {
 		return err
 	}
-	err = as.InvalidateSession(username)
+	err = as.PerformLogout(username)
 	if err != nil {
 		return err
 	}

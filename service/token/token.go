@@ -68,7 +68,9 @@ func (t *TokenManager) Issue(usr *user.User) (string, error) {
 		Token:     tmpToken,
 		ExpiresAt: time.Now().Add(t.duration),
 	}
-	err = t.session.DB(t.dbName).C(t.collectionName).Insert(token)
+	sess := t.session.Clone()
+	defer sess.Close()
+	err = sess.DB(t.dbName).C(t.collectionName).Insert(token)
 	if err != nil {
 		if mgo.IsDup(err) {
 			return "", ErrorTokenAlreadyExist
@@ -80,7 +82,9 @@ func (t *TokenManager) Issue(usr *user.User) (string, error) {
 
 func (t *TokenManager) Validate(tokenStr string) (*Token, error) {
 	token := &Token{}
-	if err := t.session.DB(t.dbName).C(t.collectionName).Find(bson.M{"token": tokenStr}).One(token); err != nil {
+	sess := t.session.Clone()
+	defer sess.Close()
+	if err := sess.DB(t.dbName).C(t.collectionName).Find(bson.M{"token": tokenStr}).One(token); err != nil {
 		return nil, NotFoundError(err)
 	}
 	if token.Expired() {
@@ -90,7 +94,9 @@ func (t *TokenManager) Validate(tokenStr string) (*Token, error) {
 }
 
 func (t *TokenManager) ForceExpireAll(usr *user.User) error {
-	info, err := t.session.DB(t.dbName).C(t.collectionName).UpdateAll(bson.M{"userId": usr.Id, "expiresAt": bson.M{"$gte": time.Now()}}, bson.M{"$set": bson.M{"expiresAt": time.Now().Add(-ExpiryDelta)}})
+	sess := t.session.Clone()
+	defer sess.Close()
+	info, err := sess.DB(t.dbName).C(t.collectionName).UpdateAll(bson.M{"userId": usr.Id, "expiresAt": bson.M{"$gte": time.Now()}}, bson.M{"$set": bson.M{"expiresAt": time.Now().Add(-ExpiryDelta)}})
 	if err != nil {
 		return err
 	}
@@ -101,7 +107,9 @@ func (t *TokenManager) ForceExpireAll(usr *user.User) error {
 }
 
 func (t *TokenManager) ForeExpireToken(tokenStr string) error {
-	err := t.session.DB(t.dbName).C(t.collectionName).Update(bson.M{"token": tokenStr}, bson.M{"$set": bson.M{"expiresAt": time.Now().Add(-ExpiryDelta)}})
+	sess := t.session.Clone()
+	defer sess.Close()
+	err := sess.DB(t.dbName).C(t.collectionName).Update(bson.M{"token": tokenStr}, bson.M{"$set": bson.M{"expiresAt": time.Now().Add(-ExpiryDelta)}})
 	if err != nil {
 		return NotFoundError(err)
 	}
@@ -109,7 +117,9 @@ func (t *TokenManager) ForeExpireToken(tokenStr string) error {
 }
 
 func (t *TokenManager) RemoveExpired() error {
-	info, err := t.session.DB(t.dbName).C(t.collectionName).RemoveAll(bson.M{"expiresAt": bson.M{"$lte": time.Now()}})
+	sess := t.session.Clone()
+	defer sess.Close()
+	info, err := sess.DB(t.dbName).C(t.collectionName).RemoveAll(bson.M{"expiresAt": bson.M{"$lte": time.Now()}})
 	if err != nil {
 		return err
 	}
